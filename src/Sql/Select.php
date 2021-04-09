@@ -691,16 +691,33 @@ class Select extends AbstractPreparableSql
             }
             if (is_int($k)) {
                 if (strpos($v, ' ') !== false) {
-                    list($k, $v) = preg_split('# #', $v, 2);
+                    // Fix for spaces on column names.
+                    //list($k, $v) = preg_split('# #', $v, 2);
+                    list($k, $v) = preg_split('/ (?!.* )/', $v, 2);
                 } else {
                     $k = $v;
                     $v = self::ORDER_ASCENDING;
                 }
             }
-            if (strcasecmp(trim($v), self::ORDER_DESCENDING) === 0) {
-                $orders[] = [$platform->quoteIdentifierInFragment($k), self::ORDER_DESCENDING];
+
+            /**
+             * Fix for spaces on column names.
+             * @see https://github.com/laminas/laminas-db/issues/84
+             */
+            $column = null;
+            $startsWithNumber = preg_match('/^[0-9]+/', $k);
+            $hasSpaceOrDash = preg_match('/^(.+)(\s|-)+(.+)$/i', $k);
+            $hasDot = preg_match('/\./i', $k);
+            if (($startsWithNumber || $hasSpaceOrDash) && !$hasDot) {
+                $column = $platform->quoteIdentifier($k);
             } else {
-                $orders[] = [$platform->quoteIdentifierInFragment($k), self::ORDER_ASCENDING];
+                $column = $platform->quoteIdentifierInFragment($k);
+            }
+
+            if (strcasecmp(trim($v), self::ORDER_DESCENDING) === 0) {
+                $orders[] = [$column, self::ORDER_DESCENDING];
+            } else {
+                $orders[] = [$column, self::ORDER_ASCENDING];
             }
         }
         return [$orders];

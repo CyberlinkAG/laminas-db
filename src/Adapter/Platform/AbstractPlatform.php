@@ -28,7 +28,7 @@ abstract class AbstractPlatform implements PlatformInterface
     /**
      * @var string
      */
-    protected $quoteIdentifierFragmentPattern = '/([^0-9,a-z,A-Z$_:])/i';
+    protected $quoteIdentifierFragmentPattern = '/([^0-9,a-z,A-Z$_:,\s,\(,\)])/i';
 
     /**
      * {@inheritDoc}
@@ -55,6 +55,8 @@ abstract class AbstractPlatform implements PlatformInterface
         $identifier = '';
 
         foreach ($parts as $part) {
+            // Fix for spaces.
+            $part = trim($part);
             $identifier .= isset($safeWordsInt[strtolower($part)])
                 ? $part
                 : $this->quoteIdentifier[0]

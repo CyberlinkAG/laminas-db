@@ -435,8 +435,10 @@ abstract class AbstractSql implements SqlInterface
          */
         $startsWithNumber = preg_match('/^[0-9]+/', $column);
         $hasSpaceOrDash = preg_match('/^(.+)(\s|-)+(.+)$/i', $column);
+        $hasDot = preg_match('/\./i', $column);
+        $hasBrackets =  preg_match('/\(|\)/', $column);
         if ($isIdentifier) {
-            if ($startsWithNumber || $hasSpaceOrDash) {
+            if (($startsWithNumber || $hasSpaceOrDash) && !$hasDot && !$hasBrackets) {
                 $column = $platform->quoteIdentifier($column);
             } else {
                 $column = $platform->quoteIdentifierInFragment($column);
