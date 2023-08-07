@@ -1,37 +1,40 @@
 <?php
 
-/**
- * @see       https://github.com/laminas/laminas-db for the canonical source repository
- * @copyright https://github.com/laminas/laminas-db/blob/master/COPYRIGHT.md
- * @license   https://github.com/laminas/laminas-db/blob/master/LICENSE.md New BSD License
- */
-
 namespace LaminasTest\Db\Adapter\Driver\TestAsset;
+
+use PDO;
+use ReturnTypeWillChange;
 
 /**
  * Stub class
  */
-class PdoMock extends \PDO
+class PdoMock extends PDO
 {
     public function __construct()
     {
     }
 
-    public function beginTransaction()
+    public function beginTransaction(): bool
     {
         return true;
     }
 
-    public function commit()
+    public function commit(): bool
     {
         return true;
     }
 
+    /**
+     * @param string $attribute
+     * @return null
+     */
+    #[ReturnTypeWillChange]
     public function getAttribute($attribute)
     {
+        return null;
     }
 
-    public function rollBack()
+    public function rollBack(): bool
     {
         return true;
     }

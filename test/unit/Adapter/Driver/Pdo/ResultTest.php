@@ -1,26 +1,22 @@
 <?php
 
-/**
- * @see       https://github.com/laminas/laminas-db for the canonical source repository
- * @copyright https://github.com/laminas/laminas-db/blob/master/COPYRIGHT.md
- * @license   https://github.com/laminas/laminas-db/blob/master/LICENSE.md New BSD License
- */
-
 namespace LaminasTest\Db\Adapter\Driver\Pdo;
 
 use Laminas\Db\Adapter\Driver\Pdo\Result;
+use Laminas\Db\Adapter\Exception\InvalidArgumentException;
+use PDO;
+use PDOStatement;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
+use function assert;
+use function uniqid;
+
 /**
- * Class ResultTest
- * @package LaminasTest\Db\Adapter\Driver\Pdo
- *
  * @group result-pdo
  */
 class ResultTest extends TestCase
 {
-
     /**
      * Tests current method returns same data on consecutive calls.
      *
@@ -45,7 +41,7 @@ class ResultTest extends TestCase
     {
         $result = new Result();
 
-        $this->expectException('\Laminas\Db\Adapter\Exception\InvalidArgumentException');
+        $this->expectException(InvalidArgumentException::class);
         $result->setFetchMode(13);
     }
 
@@ -58,12 +54,12 @@ class ResultTest extends TestCase
         $stub->expects($this->any())
             ->method('fetch')
             ->will($this->returnCallback(function () {
-                return new stdClass;
+                return new stdClass();
             }));
 
         $result = new Result();
         $result->initialize($stub, null);
-        $result->setFetchMode(\PDO::FETCH_OBJ);
+        $result->setFetchMode(PDO::FETCH_OBJ);
 
         self::assertEquals(5, $result->getFetchMode());
         self::assertInstanceOf('stdClass', $result->current());
@@ -78,12 +74,43 @@ class ResultTest extends TestCase
         $stub->expects($this->any())
             ->method('fetch')
             ->will($this->returnCallback(function () {
-                return new stdClass;
+                return new stdClass();
             }));
         $result = new Result();
         $result->initialize($stub, null);
-        $result->setFetchMode(\PDO::FETCH_NAMED);
+        $result->setFetchMode(PDO::FETCH_NAMED);
         self::assertEquals(11, $result->getFetchMode());
         self::assertInstanceOf('stdClass', $result->current());
+    }
+
+    public function testMultipleRewind()
+    {
+        $data     = [
+            ['test' => 1],
+            ['test' => 2],
+        ];
+        $position = 0;
+
+        $stub = $this->getMockBuilder('PDOStatement')->getMock();
+        assert($stub instanceof PDOStatement); // to suppress IDE type warnings
+        $stub->expects($this->any())
+            ->method('fetch')
+            ->will($this->returnCallback(function () use ($data, &$position) {
+                return $data[$position++];
+            }));
+        $result = new Result();
+        $result->initialize($stub, null);
+
+        $result->rewind();
+        $result->rewind();
+
+        $this->assertEquals(0, $result->key());
+        $this->assertEquals(1, $position);
+        $this->assertEquals($data[0], $result->current());
+
+        $result->next();
+        $this->assertEquals(1, $result->key());
+        $this->assertEquals(2, $position);
+        $this->assertEquals($data[1], $result->current());
     }
 }

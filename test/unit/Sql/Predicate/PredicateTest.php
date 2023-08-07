@@ -1,16 +1,15 @@
 <?php
 
-/**
- * @see       https://github.com/laminas/laminas-db for the canonical source repository
- * @copyright https://github.com/laminas/laminas-db/blob/master/COPYRIGHT.md
- * @license   https://github.com/laminas/laminas-db/blob/master/LICENSE.md New BSD License
- */
-
 namespace LaminasTest\Db\Sql\Predicate;
 
+use Laminas\Db\Adapter\Platform\Sql92;
 use Laminas\Db\Sql\Expression;
 use Laminas\Db\Sql\Predicate\Predicate;
+use Laminas\Db\Sql\Select;
+use Laminas\Stdlib\ErrorHandler;
 use PHPUnit\Framework\TestCase;
+
+use const E_USER_NOTICE;
 
 class PredicateTest extends TestCase
 {
@@ -33,7 +32,6 @@ class PredicateTest extends TestCase
         self::assertContains('%s != %s', $parts[0]);
         self::assertContains(['foo.bar', 'bar'], $parts[0]);
     }
-
 
     public function testLessThanCreatesOperatorPredicate()
     {
@@ -226,7 +224,7 @@ class PredicateTest extends TestCase
      */
     public function testExpression()
     {
-        $predicate = new Predicate;
+        $predicate = new Predicate();
 
         // is chainable
         self::assertSame($predicate, $predicate->expression('foo = ?', 0));
@@ -242,12 +240,12 @@ class PredicateTest extends TestCase
      */
     public function testExpressionNullParameters()
     {
-        $predicate = new Predicate;
+        $predicate = new Predicate();
 
         $predicate->expression('foo = bar');
         $predicates = $predicate->getPredicates();
         $expression = $predicates[0][1];
-        self::assertEquals([null], $expression->getParameters());
+        self::assertEquals([], $expression->getParameters());
     }
 
     /**
@@ -255,7 +253,7 @@ class PredicateTest extends TestCase
      */
     public function testLiteral()
     {
-        $predicate = new Predicate;
+        $predicate = new Predicate();
 
         // is chainable
         self::assertSame($predicate, $predicate->literal('foo = bar'));
@@ -266,7 +264,7 @@ class PredicateTest extends TestCase
         );
 
         // test literal() is backwards-compatible, and works with with parameters
-        $predicate = new Predicate;
+        $predicate = new Predicate();
         $predicate->expression('foo = ?', 'bar');
         // with parameter
         self::assertEquals(
@@ -275,12 +273,67 @@ class PredicateTest extends TestCase
         );
 
         // test literal() is backwards-compatible, and works with with parameters, even 0 which tests as false
-        $predicate = new Predicate;
+        $predicate = new Predicate();
         $predicate->expression('foo = ?', 0);
         // with parameter
         self::assertEquals(
             [['foo = %s', [0], [Expression::TYPE_VALUE]]],
             $predicate->getExpressionData()
         );
+    }
+
+    public function testCanCreateExpressionsWithoutAnyBoundSqlParameters(): void
+    {
+        $where1 = new Predicate();
+
+        $where1->expression('some_expression()');
+
+        self::assertSame(
+            'SELECT "a_table".* FROM "a_table" WHERE (some_expression())',
+            $this->makeSqlString($where1)
+        );
+    }
+
+    public function testWillBindSqlParametersToExpressionsWithGivenParameter(): void
+    {
+        $where = new Predicate();
+
+        $where->expression('some_expression(?)', null);
+
+        self::assertSame(
+            'SELECT "a_table".* FROM "a_table" WHERE (some_expression(\'\'))',
+            $this->makeSqlString($where)
+        );
+    }
+
+    public function testWillBindSqlParametersToExpressionsWithGivenStringParameter(): void
+    {
+        $where = new Predicate();
+
+        $where->expression('some_expression(?)', 'a string');
+
+        self::assertSame(
+            'SELECT "a_table".* FROM "a_table" WHERE (some_expression(\'a string\'))',
+            $this->makeSqlString($where)
+        );
+    }
+
+    private function makeSqlString(Predicate $where): string
+    {
+        $select = new Select('a_table');
+
+        $select->where($where);
+
+        // this is still faster than connecting to a real DB for this kind of test.
+        // we are using unsafe SQL quoting on purpose here: this raises warnings in production.
+        ErrorHandler::start(E_USER_NOTICE);
+
+        try {
+            $string = $select->getSqlString(new Sql92());
+        } finally {
+            ErrorHandler::stop();
+        }
+
+        return $string;
     }
 }
